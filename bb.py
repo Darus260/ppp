@@ -4,38 +4,36 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- KONFIGURASI ---
-FILE_INPUT = "NWSHP_codes_265277_299999.txt"  # Gunakan file yang sudah dipecah agar ringan
+FILE_INPUT = "NWSHP_codes_265277_299999.txt"  
 FILE_OUTPUT = "voucher_valid_final.txt"
 BASE_URL = "https://myskill.id/payment/review-cv-ai/695b6ba96qgWXGrJQigK?coupon="
 
 # TENTUKAN MODE DI SINI:
 # False = Buka browser (Untuk login pertama kali)
-# True  = Tanpa browser / Latar belakang (Untuk ngecek kode selanjutnya)
-MODE_HEADLESS = False  # Set False dulu agar kamu bisa login
+# True  = Tanpa browser / Latar belakang
+MODE_HEADLESS = False  
 
 def setup_driver():
     chrome_options = Options()
     chrome_options.add_argument("--log-level=3")
     
-    # --- FIX UNTUK RDP (Mencegah Crash DevToolsActivePort) ---
+    # --- AMUNISI ANTI-CRASH CHROME DI RDP/SERVER ---
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    # ---------------------------------------------------------
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--remote-debugging-port=9222")
+    # -----------------------------------------------
     
-    # Membuat folder khusus di lokasi skrip ini berada untuk menyimpan data Login
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    profile_path = os.path.join(current_dir, "profil_bot_myskill")
+    profile_path = os.path.join(current_dir, "profil_bot_myskill_chrome")
     chrome_options.add_argument(f"user-data-dir={profile_path}")
 
-    # Mengaktifkan mode tanpa layar jika MODE_HEADLESS = True
     if MODE_HEADLESS:
         chrome_options.add_argument("--headless=new")
-        chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--window-size=1920,1080")
 
     service = Service(ChromeDriverManager().install())
@@ -54,7 +52,6 @@ def check_vouchers_background():
     valid_count = 0
 
     try:
-        # --- JEDA UNTUK LOGIN (HANYA JIKA MODE GUI AKTIF) ---
         if not MODE_HEADLESS:
             print("\n[!] MODE TAMPILAN (GUI) AKTIF")
             print("Membuka halaman utama MySkill untuk login...")
@@ -69,7 +66,6 @@ def check_vouchers_background():
         elif MODE_HEADLESS:
             print("Status: Berjalan di Latar Belakang (Headless Mode) 👻\n")
 
-        # --- MULAI LOOPING PENGECEKAN KODE ---
         print(f"Memulai pengecekan {len(codes)} kode...")
 
         for index, code in enumerate(codes, start=1):
@@ -77,24 +73,26 @@ def check_vouchers_background():
             driver.get(url)
             
             try:
-                # Mencari ikon centang class css-te1a66
-                xpath_selector = "//div[@class='css-te1a66']"
-                WebDriverWait(driver, 6).until(
-                    EC.presence_of_element_located((By.XPATH, xpath_selector))
-                )
+                # Jeda 3 detik agar pesan error "Kupon tidak ditemukan" sempat muncul
+                time.sleep(3)
                 
-                print(f"[{index}/{len(codes)}] {code} -> [✔] VALID & BISA DIPAKAI")
-                with open(FILE_OUTPUT, "a") as f_out:
-                    f_out.write(f"{code}\n")
-                valid_count += 1
+                # Baca semua teks yang ada di layar
+                page_text = driver.find_element(By.TAG_NAME, "body").text.lower()
                 
-            except Exception:
-                print(f"[{index}/{len(codes)}] {code} -> [X] HANGUS / TIDAK VALID")
+                # Cek apakah ada tulisan error
+                if "kupon tidak ditemukan" in page_text or "kupon tidak valid" in page_text:
+                    print(f"[{index}/{len(codes)}] {code} -> [X] HANGUS / TIDAK DITEMUKAN")
+                else:
+                    print(f"[{index}/{len(codes)}] {code} -> [✔] VALID & BISA DIPAKAI")
+                    with open(FILE_OUTPUT, "a") as f_out:
+                        f_out.write(f"{code}\n")
+                    valid_count += 1
+                
+            except Exception as e:
+                print(f"[{index}/{len(codes)}] {code} -> [?] ERROR MENGECEK HALAMAN")
             
-            time.sleep(1)
-
     except KeyboardInterrupt:
-        print("\nSkrip dihentikan paksa.")
+        print("\nSkrip dihentikan paksa oleh pengguna.")
     except Exception as e:
         print(f"\nError: {e}")
     finally:
