@@ -15,12 +15,17 @@ BASE_URL = "https://myskill.id/payment/review-cv-ai/695b6ba96qgWXGrJQigK?coupon=
 
 # TENTUKAN MODE DI SINI:
 # False = Buka browser (Untuk login pertama kali)
-# True  = Tanpa browser / Latar belakang (Untuk ngecek kode)
-MODE_HEADLESS = True  
+# True  = Tanpa browser / Latar belakang (Untuk ngecek kode selanjutnya)
+MODE_HEADLESS = False  # Set False dulu agar kamu bisa login
 
 def setup_driver():
     chrome_options = Options()
     chrome_options.add_argument("--log-level=3")
+    
+    # --- FIX UNTUK RDP (Mencegah Crash DevToolsActivePort) ---
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    # ---------------------------------------------------------
     
     # Membuat folder khusus di lokasi skrip ini berada untuk menyimpan data Login
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -44,16 +49,28 @@ def check_vouchers_background():
         print(f"File {FILE_INPUT} tidak ditemukan!")
         return
 
-    print("Menyiapkan browser...")
+    print("Menyiapkan browser Chrome...")
     driver = setup_driver()
     valid_count = 0
 
     try:
-        print(f"Memulai pengecekan {len(codes)} kode...")
-        if MODE_HEADLESS:
+        # --- JEDA UNTUK LOGIN (HANYA JIKA MODE GUI AKTIF) ---
+        if not MODE_HEADLESS:
+            print("\n[!] MODE TAMPILAN (GUI) AKTIF")
+            print("Membuka halaman utama MySkill untuk login...")
+            driver.get("https://myskill.id/") 
+            
+            print("\n" + "="*50)
+            print(">>> SILAKAN LOGIN MANUAL DI BROWSER CHROME <<<")
+            print("Jika sudah berhasil login, kembali ke terminal/CMD ini")
+            input("dan tekan tombol [ENTER] untuk mulai mengecek kode...")
+            print("="*50 + "\n")
+            print("Melanjutkan pengecekan kode otomatis...\n")
+        elif MODE_HEADLESS:
             print("Status: Berjalan di Latar Belakang (Headless Mode) 👻\n")
-        else:
-            print("Status: Tampil di Layar (GUI Mode) 🖥️\n")
+
+        # --- MULAI LOOPING PENGECEKAN KODE ---
+        print(f"Memulai pengecekan {len(codes)} kode...")
 
         for index, code in enumerate(codes, start=1):
             url = f"{BASE_URL}{code}"
