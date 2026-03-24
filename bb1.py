@@ -4,16 +4,16 @@ from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.firefox import GeckoDriverManager
 
 # --- KONFIGURASI ---
-FILE_INPUT = "NWSHP_codes_265277_299999.txt"
+FILE_INPUT = "NWSHP_codes_265277_299999.txt"  
 FILE_OUTPUT = "voucher_valid_final.txt"
 BASE_URL = "https://myskill.id/payment/review-cv-ai/695b6ba96qgWXGrJQigK?coupon="
 
-# MODE_HEADLESS = False untuk pertama kali agar bisa login
+# TENTUKAN MODE DI SINI:
+# False = Buka browser (Untuk login pertama kali)
+# True  = Tanpa browser / Latar belakang
 MODE_HEADLESS = False  
 
 def setup_driver():
@@ -49,11 +49,9 @@ def check_vouchers_background():
     valid_count = 0
 
     try:
-        # --- JEDA UNTUK LOGIN (HANYA JIKA MODE GUI AKTIF) ---
         if not MODE_HEADLESS:
             print("\n[!] MODE TAMPILAN (GUI) AKTIF")
             print("Membuka halaman utama MySkill untuk login...")
-            # Buka halaman utama atau halaman login MySkill
             driver.get("https://myskill.id/") 
             
             print("\n" + "="*50)
@@ -65,30 +63,33 @@ def check_vouchers_background():
         elif MODE_HEADLESS:
             print("Status: Berjalan di Latar Belakang (Headless Mode) 👻\n")
 
-        # --- MULAI LOOPING PENGECEKAN KODE ---
         print(f"Memulai pengecekan {len(codes)} kode...")
+
         for index, code in enumerate(codes, start=1):
             url = f"{BASE_URL}{code}"
             driver.get(url)
             
             try:
-                xpath_selector = "//div[@class='css-te1a66']"
-                WebDriverWait(driver, 6).until(
-                    EC.presence_of_element_located((By.XPATH, xpath_selector))
-                )
+                # Beri jeda 3 detik agar halaman dan pesan error selesai dimuat
+                time.sleep(3)
                 
-                print(f"[{index}/{len(codes)}] {code} -> [✔] VALID")
-                with open(FILE_OUTPUT, "a") as f_out:
-                    f_out.write(f"{code}\n")
-                valid_count += 1
+                # Ambil semua teks di dalam body website dan ubah ke huruf kecil
+                page_text = driver.find_element(By.TAG_NAME, "body").text.lower()
                 
-            except Exception:
-                print(f"[{index}/{len(codes)}] {code} -> [X] TIDAK VALID")
+                # Logika pengecekan berdasarkan screenshot
+                if "kupon tidak ditemukan" in page_text or "kupon tidak valid" in page_text:
+                    print(f"[{index}/{len(codes)}] {code} -> [X] HANGUS / TIDAK DITEMUKAN")
+                else:
+                    print(f"[{index}/{len(codes)}] {code} -> [✔] VALID & BISA DIPAKAI")
+                    with open(FILE_OUTPUT, "a") as f_out:
+                        f_out.write(f"{code}\n")
+                    valid_count += 1
+                
+            except Exception as e:
+                print(f"[{index}/{len(codes)}] {code} -> [?] ERROR MENGECEK HALAMAN")
             
-            time.sleep(1)
-
     except KeyboardInterrupt:
-        print("\nSkrip dihentikan paksa.")
+        print("\nSkrip dihentikan paksa oleh pengguna.")
     except Exception as e:
         print(f"\nError: {e}")
     finally:
