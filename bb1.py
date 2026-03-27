@@ -8,7 +8,7 @@ from webdriver_manager.firefox import GeckoDriverManager
 # --- KONFIGURASI ---
 FILE_INPUT = "NWSHP_codes_265277_299999.txt"  
 FILE_OUTPUT = "voucher_valid_final.txt"
-BASE_URL = "https://myskill.id/payment/review-cv-ai/695b6ba96qgWXGrJQigK?coupon="
+BASE_URL = "#"
 
 # TENTUKAN MODE DI SINI:
 # False = Buka browser (Untuk login pertama kali atau melihat prosesnya)
